@@ -14,13 +14,13 @@ class GBDT_CT(object):
         self.init_value = None
         self.trees = []
 
-    #计算预测标签和残差
+    # 计算预测标签和残差
     def get_init_value(self, Y):
         p = np.count_nonzero(Y) #计算类别1的样本个数
         n = np.shape(Y)[0] #总样本个数
         return np.log(p / (n-p))
 
-    #计算sigmoid函数
+    # 计算sigmoid函数
     def get_sigmoid(self, y):
         if y >= 0:
             return 1/ (1 + np.exp(- y))
@@ -54,7 +54,7 @@ class GBDT_CT(object):
             y_residuals = np.c_[Y, y_residuals]
             self.trees.append(tree)
 
-    #模型预测
+    # 模型预测
     def GBDT_predict(self, X_test):
         predicts = []
         for i in range(np.shape(X_test)[0]):
@@ -67,7 +67,7 @@ class GBDT_CT(object):
                 predicts.append(0)
         return predicts
 
-    #计算误差
+    # 计算误差
     def cal_error(self, Y_test, predicts):
         y_test = np.array(Y_test)
         y_predicts = np.array(predicts)
@@ -75,13 +75,13 @@ class GBDT_CT(object):
         return error
 
 if __name__ == "__main__":
-    #加载数据集
+    # 加载数据集
     cwd = os.getcwd()
     datasets_path = os.path.join(cwd, 'data_final_2.xlsx')
     df = pd.read_excel(datasets_path)
-    #设置随机种子
+    # 设置随机种子
     # np.random.seed(123)
-    #划分训练集、测试集
+    # 划分训练集、测试集
     # X_train, X_test, y_train, y_test = train_test_split(data.iloc[:, :-1].values, data.iloc[:, -1].values, test_size= 0.2, random_state= 123)
     Train, val_test = train_test_split(df, test_size=0.4, random_state=0, shuffle=True)  # 训练集占60%
     val, test = train_test_split(df, test_size=0.5, random_state=0, shuffle=True)  # 验证集和测试集各占20%
@@ -95,36 +95,58 @@ if __name__ == "__main__":
     X_Test = test.iloc[:, :14].values
     Y_Test = test.iloc[:, 14].values
 
-    #设置模型参数
+    # 设置模型参数
     n_estimater = 50
     learn_rate = 0.2
     min_sample = 30
     min_error = 0.3
     max_height = 8  # 深度为属性值的一半
 
-    #实例化GBDT_RT
+    # 实例化GBDT_RT
     gbdtTrees = GBDT_CT(n_estimater=n_estimater, learn_rate=learn_rate)
 
-    #拟合模型
+    # 拟合模型
     gbdtTrees.fit(X_Train, Y_Train, min_sample, min_error, max_height)
 
-    #模型预测
+    # 模型预测
     Y_Pred = gbdtTrees.GBDT_predict(X_Val)
     Y_Pred2 = gbdtTrees.GBDT_predict(X_Test)
-    print("Y_Pred=", Y_Pred)
-    print("Y_Pred2=", Y_Pred2)
+    #print("Y_Pred=", Y_Pred)
+    #print("Y_Pred2=", Y_Pred2)
 
     # 混淆矩阵
     cm = confusion_matrix(Y_Val, Y_Pred)
     cm2 = confusion_matrix(Y_Test, Y_Pred2)
-    print('confusion matrix:')
+    print('Validation set confusion matrix:')
     print(cm)
-    print('confusion matrix2:')
+    print('Test set confusion matrix:')
     print(cm2)
 
-    #计算验证集和测试集准确率
-    acc = accuracy_score(Y_Val, Y_Pred)
-    print("acc=", acc)
-    acc2 = accuracy_score(Y_Test, Y_Pred2)
-    print("acc2=", acc2)
+    # 计算测试集Rec, Pre, f1, Acc
+    # Rec=正确的正样本数/样本中的正样本数；Pre=正确的正样本数/预测为正例的样本数；f1=2*Rec*Pre/Rec+Pre。被攻击的为正样本，样本标签为1
+    A = 0  # 预测为正，实际为正的样本数
+    B = 0  # 预测为负，实际为正的样本数
+    C = 0  # 预测为正，实际为负的样本数
+    D = 0  # 预测为负，实际为负的样本数
+
+    for e in range(0, len(Y_Test)):
+        if Y_Pred2[e] != Y_Test[e]:
+            if Y_Test[e] == 1:
+                B = B + 1  # 预测为负，但实际为正
+            else:
+                C = C + 1  # 预测为正，但实际为负
+        else:
+            if Y_Test[e] == 1:
+                A = A + 1  # 预测为正，实际为正
+            else:
+                D = D + 1  # 预测为负实际为负
+    Acc = (A + D) / (A + B + C + D)
+    Rec = A / (A + B)
+    Pre = A / (A + C)
+    f1 = 2 * Rec * Pre / (Rec + Pre)
+    print('For Test set:')
+    print('Accuracy: ', Acc)
+    print('Recall: ', Rec)
+    print('Precision: ', Pre)
+    print('F1: ', f1)
 
